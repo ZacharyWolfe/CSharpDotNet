@@ -1137,7 +1137,7 @@ namespace Oxide.Plugins
 						match.PenalizePlayers.Add(player);
 						match.a.connectedMembers.Remove(player);
 						match.a.canForfeit = true;
-						(match.a, "Your team is available to /forfeit, " + player.displayName.ToString() + " has disconnected from the match and has been penalized for each member of your team.");
+						SendMessage(match.a, "Your team is available to /forfeit, " + player.displayName.ToString() + " has disconnected from the match and has been penalized for each member of your team.");
 					}
 				}
 				else
@@ -1174,7 +1174,7 @@ namespace Oxide.Plugins
 				BasePlayer leader = player.Team.GetLeader ();
 				leader.Team.RemovePlayer (player.userID);
 			}
-			else if (player == player.Team.GetLeader() && player.Team.members.count > 1){
+			else if (player == player.Team.GetLeader() && player.Team.members.Count > 1){
 				SwapLeadership(player);
 			}
 		}
@@ -1315,7 +1315,7 @@ namespace Oxide.Plugins
 		private void Penalize (BasePlayer player, bool leaver, int multiplier)
 		{
 			return;
-			DisconnectedPlayersAlert.Add(player, eloLost);
+			//DisconnectedPlayersAlert.Add(player, eloLost);
 			if (multiplier != 0){
 
 			}
@@ -1395,6 +1395,7 @@ namespace Oxide.Plugins
 
 		void OnCrateHackEnd (HackableLockedCrate self)
 		{
+			Match match = GetMatch (self);
 			Server.Broadcast ("oncratehackend crate == null " + (match.crateKek == null).ToString ());
 
 			if (!match.roundOver && self != null)
@@ -1424,7 +1425,7 @@ namespace Oxide.Plugins
 			
 			foreach (KeyValuePair<BasePlayer, float> disconnect in DisconnectedPlayersAlert){
 				if (player == disconnect.Key)
-					SendReply(disconnect.Key.displayName.ToString(), "Nice disconnect during the last match you played; you were penalized an extra " + disconnect.Value + " elo for leaving.");
+					SendReply(disconnect.Key, "Nice disconnect during the last match you played; you were penalized an extra " + disconnect.Value + " elo for leaving.");
 			}
 		}
 
