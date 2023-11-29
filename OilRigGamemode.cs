@@ -540,6 +540,9 @@ namespace Oxide.Plugins
 		}
 		private void CheckGame(Match match)
 		{
+			Timer myTimer = null;
+			myTimer = timer.Every (1f, () =>
+			{
 			//Dictionary<BasePlayer, ulong> onlineConnectionsTeamA = new Dictionary<BasePlayer, ulong> ();
 			//Dictionary<BasePlayer, ulong> onlineConnectionsTeamB = new Dictionary<BasePlayer, ulong> ();
 
@@ -556,145 +559,148 @@ namespace Oxide.Plugins
 			//		onlineConnectionsTeamB.Add (teammate2, teammate2.userID);
 			//}
 
-			Server.Broadcast ("Checkgame received flag of " + match.increaseRoundFlag);
-
 			//match.a.identifier.Team.
-			Server.Broadcast ("First check " + (match.increaseRoundFlag && match.rounds == match.onRound).ToString ());
-			Server.Broadcast ("Second check " + ((match.increaseRoundFlag) && match.rounds < match.onRound).ToString ());
-			if (match.increaseRoundFlag && match.rounds == match.onRound)
-			{
-				Server.Broadcast ("Ending game");
-				match.roundOver = true;
-				End (match);
-			}
-			else if ((match.increaseRoundFlag) && match.onRound < match.rounds)
-			{
-				SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round by successfully expiring the crate time.");
-				SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round by successfully expiring the crate time.");
-		
-				match.roundOver = true;
-				match.onRound++;
-				Server.Broadcast ("Resetting match, on round " + match.onRound);
-				Reset (match);
-				match.ended = false;
-			}
-			else
-			{
-				Timer myTimer = null;
-				myTimer = timer.Every (1f, () =>
+				if (match.increaseRoundFlag && match.rounds == match.onRound)
 				{
-					//match.timeLeft++;
-					//Server.Broadcast ((match.rounds == match.onRound).ToString() + " match on round " + match.onRound);
-					if (match.rounds == match.onRound && (match.deathsTeamA.Count >= match.a.teamMembers.Count || match.deathsTeamB.Count >= match.b.teamMembers.Count))
+					match.roundOver = true;
+					End (match);
+					match.increaseRoundFlag = false;
+				}
+				else if ((match.increaseRoundFlag || match.timeLeft == 40f) && match.rounds < match.onRound)
+				{
+					Team teamB = new Team
 					{
-						if (match.a.roundsWon > match.b.roundsWon)
-						{
-							match.winner = match.a.identifier.displayName.ToString ();
-						}
-						else
-						{
-							match.winner = match.b.identifier.displayName.ToString ();
-	 					}
-						Server.Broadcast ("Ending match because all players have died and round is 3");
-						End (match);
-						if (myTimer != null)
-						{
-							myTimer.Destroy ();
-							myTimer = null;
-						}
-					}
-					else if (match.deathsTeamB.Count >= match.b.teamMembers.Count || match.deathsTeamA.Count >= match.a.teamMembers.Count)
-					{
-						if (match.deathsTeamA.Count >= match.a.teamMembers.Count)
-						{
-							Team teamB = new Team
-							{
-								color = match.b.color,
-								matchID = match.b.matchID,
-								gamemodeQueuedFor = match.b.gamemodeQueuedFor,
-								identifier = match.b.identifier,
-								inGame = match.b.inGame,
-								teamMembers = match.b.teamMembers,
-								roundsWon = match.b.roundsWon + 1
-							};
-							if (!match.started && match.b.color)
-							{
-								SendMessage (teamB, "You are on the <color=#316bf5>BLUE</color> team.");
-								SendMessage (teamB, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
-							}
-							else if (!match.started && !match.b.color)
-							{
-								SendMessage (teamB, "You are on the <color=#ed2323>RED</color> team.");
-								SendMessage (teamB, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
-							}
+						color = match.b.color,
+						matchID = match.b.matchID,
+						gamemodeQueuedFor = match.b.gamemodeQueuedFor,
+						identifier = match.b.identifier,
+						inGame = match.b.inGame,
+						teamMembers = match.b.teamMembers,
+						roundsWon = match.b.roundsWon + 1
+					};
 
-							if (match.b.color)
-							{
-								SendMessage (teamB, "<color=#316bf5>BLUE</color> won the round.");
-								SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round.");
-							}
-							else
-							{
-								SendMessage (teamB, "<color=#ed2323>RED</color> won the round.");
-								SendMessage (match.a, "<color=#ed2323>RED</color> won the round.");
-							}
-							match.roundOver = true;
-							match.b = teamB;
-						}
-						else
-						{
-							Team teamA = new Team
-							{
-								color = match.a.color,
-								matchID = match.a.matchID,
-								gamemodeQueuedFor = match.a.gamemodeQueuedFor,
-								identifier = match.a.identifier,
-								inGame = match.a.inGame,
-								teamMembers = match.a.teamMembers,
-								roundsWon = match.a.roundsWon + 1
-							};
-							if (!match.started && !teamA.color)
-							{
-								SendMessage (teamA, "You are on the <color=#ed2323>RED</color> team.");
-								SendMessage (teamA, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
-							}
-							else if (!match.started && teamA.color)
-							{
-								SendMessage (teamA, "You are on the <color=#316bf5>BLUE</color> team.");
-								SendMessage (teamA, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
-							}
-
-							if (match.a.color)
-							{
-								SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round.");
-								SendMessage (teamA, "<color=#316bf5>BLUE</color> won the round.");
-							}
-							else
-							{
-								SendMessage (match.b, "<color=#ed2323>RED</color> won the round.");
-								SendMessage (teamA, "<color=#ed2323>RED</color> won the round.");
-							}
-							match.roundOver = true;
-							match.a = teamA;
-						}
-						match.onRound++;
-						Server.Broadcast ("Resetting match because either team has died");
-						Reset (match);
-						match.ended = false;
-					}
+					SendMessage (teamB, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
+					SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round  by successully expiring the crate time.");
+					match.b = teamB;
+					match.roundOver = true;
+					match.onRound++;
+					Reset (match);
+					match.increaseRoundFlag = false;
 					match.ended = false;
-					//if (onlineConnectionsTeamA.Count != match.a.identifier.Team.members.Count)
-					//{
-					//passengers = teamList.Except (drivers).ToList ();
-					//	removePlayersTeamA = match.a.identifier.Team.members.Except (onlineConnectionsTeamA.Values).ToList ();
-					//}
-					//if (onlineConnectionsTeamB.Count != match.b.identifier.Team.members.Count)
-					//{
-					//passengers = teamList.Except (drivers).ToList ();
-					//	removePlayersTeamB = match.b.identifier.Team.members.Except (onlineConnectionsTeamB.Values).ToList ();
-					//}
-				});
-			}
+				}
+				else
+				{
+						//match.timeLeft++;
+						if (match.rounds == match.onRound && (match.deathsTeamA.Count >= match.a.teamMembers.Count || match.deathsTeamB.Count >= match.b.teamMembers.Count))
+						{
+							if (match.a.roundsWon > match.b.roundsWon)
+							{
+								match.winner = match.a.identifier.displayName.ToString ();
+							}
+							else
+							{
+								match.winner = match.b.identifier.displayName.ToString ();
+							}
+
+							End (match);
+							if (myTimer != null)
+							{
+								myTimer.Destroy ();
+								myTimer = null;
+							}
+						}
+						else if (match.deathsTeamB.Count >= match.b.teamMembers.Count || match.deathsTeamA.Count >= match.a.teamMembers.Count)
+						{
+							if (match.deathsTeamA.Count >= match.a.teamMembers.Count)
+							{
+								Team teamB = new Team
+								{
+									color = match.b.color,
+									matchID = match.b.matchID,
+									gamemodeQueuedFor = match.b.gamemodeQueuedFor,
+									identifier = match.b.identifier,
+									inGame = match.b.inGame,
+									teamMembers = match.b.teamMembers,
+									roundsWon = match.b.roundsWon
+								};
+								if (!match.started && match.b.color)
+								{
+									SendMessage (teamB, "You are on the <color=#316bf5>BLUE</color> team.");
+									SendMessage (teamB, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
+								}
+								else if (!match.started && !match.b.color)
+								{
+									SendMessage (teamB, "You are on the <color=#ed2323>RED</color> team.");
+									SendMessage (teamB, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
+								}
+
+								if (match.b.color)
+								{
+									SendMessage (teamB, "<color=#316bf5>BLUE</color> won the round.");
+									SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round.");
+								}
+								else
+								{
+									SendMessage (teamB, "<color=#ed2323>RED</color> won the round.");
+									SendMessage (match.a, "<color=#ed2323>RED</color> won the round.");
+								}
+								teamB.roundsWon++;
+								match.roundOver = true;
+								match.b = teamB;
+							}
+							else
+							{
+								Team teamA = new Team
+								{
+									color = match.a.color,
+									matchID = match.a.matchID,
+									gamemodeQueuedFor = match.a.gamemodeQueuedFor,
+									identifier = match.a.identifier,
+									inGame = match.a.inGame,
+									teamMembers = match.a.teamMembers
+								};
+								if (!match.started && !teamA.color)
+								{
+									SendMessage (teamA, "You are on the <color=#ed2323>RED</color> team.");
+									SendMessage (teamA, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
+								}
+								else if (!match.started && teamA.color)
+								{
+									SendMessage (teamA, "You are on the <color=#316bf5>BLUE</color> team.");
+									SendMessage (teamA, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
+								}
+
+								if (match.a.color)
+								{
+									SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round.");
+									SendMessage (teamA, "<color=#316bf5>BLUE</color> won the round.");
+								}
+								else
+								{
+									SendMessage (match.b, "<color=#ed2323>RED</color> won the round.");
+									SendMessage (teamA, "<color=#ed2323>RED</color> won the round.");
+								}
+								teamA.roundsWon++;
+								match.roundOver = true;
+								match.a = teamA;
+							}
+							match.onRound++;
+							Reset (match);
+							match.ended = false;
+						}
+						match.ended = false;
+						//if (onlineConnectionsTeamA.Count != match.a.identifier.Team.members.Count)
+						//{
+						//passengers = teamList.Except (drivers).ToList ();
+						//	removePlayersTeamA = match.a.identifier.Team.members.Except (onlineConnectionsTeamA.Values).ToList ();
+						//}
+						//if (onlineConnectionsTeamB.Count != match.b.identifier.Team.members.Count)
+						//{
+						//passengers = teamList.Except (drivers).ToList ();
+						//	removePlayersTeamB = match.b.identifier.Team.members.Except (onlineConnectionsTeamB.Values).ToList ();
+						//}
+				}
+			});
 		}
 
 		private void Reset (Match match)
@@ -1345,8 +1351,6 @@ namespace Oxide.Plugins
 
 		void OnCrateHackEnd (HackableLockedCrate self)
 		{
-			Match match = GetMatch (self);
-
 			Server.Broadcast ("oncratehackend crate == null " + (match.crateKek == null).ToString ());
 
 			if (!match.roundOver && self != null)
@@ -1354,7 +1358,8 @@ namespace Oxide.Plugins
 				SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
 				SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
 				self.Kill ();
-				RoundIncrease (match);
+				match.increaseRoundFlag = true;
+				//RoundIncrease (match);
 			}
 		}
 
@@ -1369,7 +1374,7 @@ namespace Oxide.Plugins
 
 			if (match.b.color)
 			{
-				match.b.points += match.b.crateHackWins * 25;
+				match.b.points += match.b.crateHackWins * 15;
 			}
 			else
 			{
@@ -1399,7 +1404,7 @@ namespace Oxide.Plugins
 
 			if (match.a.color)
 			{
-				match.a.points += match.a.crateHackWins * 25;
+				match.a.points += match.a.crateHackWins * 15;
 			}
 			else
 			{
