@@ -15,6 +15,7 @@ namespace Oxide.Plugins
 		struct Team
 		{
 			public List<BasePlayer> teamMembers;
+			public List<BasePlayer> connectedMembers;
 			public bool color;
 			public string gamemodeQueuedFor;
 			public BasePlayer identifier;
@@ -23,6 +24,7 @@ namespace Oxide.Plugins
 			public int roundsWon;
 			public int points;
 			public int crateHackWins;
+			public bool canForfeit;
 		};
 		
 		struct Match
@@ -49,61 +51,31 @@ namespace Oxide.Plugins
 
 		List<Match> Matches = new List<Match>();                  
 		Dictionary<Team, int> Teams = new Dictionary<Team, int>();
+		Dictionary<BasePlayer, float> DisconnectedPlayersAlert = new Dictionary<BasePlayer, float>();
 
 		#region ChatCommands
-		/*
-		[ChatCommand ("spawncrate")]
-		private void SpawnCrate (BasePlayer caller)
-		{
-			Vector3 cratePos;
-			cratePos.x = -322.63f;
-			cratePos.y = 27.18f;
-			cratePos.z = -342.04f;
+		[ChatCommand ("forfeit")]
+		private void ForfeitCMD(BasePlayer caller){
+			if (IsInMatch(caller)){
+				Match match = GetMatch(caller);
 
-			const float REQUIRED_HACK_SECONDS = 10f;
-			HackableLockedCrate lockedCrate = (HackableLockedCrate) GameManager.server.CreateEntity (crateAssetPrefab, cratePos, caller.ServerRotation);
-			if (lockedCrate != null)
-			{
-				Match match = new Match
-				{
-					crateKek = lockedCrate,
-					ID = 0
-				};
-
-				lockedCrate.SpawnAsMapEntity ();
-				lockedCrate.StartHacking ();
-				lockedCrate.shouldDecay = false;
-				lockedCrate.enableSaving = false;
-				lockedCrate.hackSeconds = HackableLockedCrate.requiredHackSeconds - REQUIRED_HACK_SECONDS;
-				
-
-				Timer myTimer = null;
-				myTimer = timer.Repeat (REQUIRED_HACK_SECONDS, 1, () =>
-				{
-					if (lockedCrate != null)
-					{
-						match.crateKek.Kill ();
-						match.crateKek = null;
-
-						if (myTimer != null)
-						{
-							myTimer.Destroy ();
-							myTimer = null;
-						}
-						//RoundIncrease (match2);
-					}
-					if (match.crateKek == null)
-					{
-						RoundIncrease (match);
-					}
-				});
-				
+				if (match.a.canForfeit && match.a.teamMembers.Contains(caller)){
+					End(match);
+					match.a.canForfeit = false;
+				}
+				else if (match.b.canForfeit){
+					End(match);
+					match.a.canForfeit = false;
+				}
+				else{
+					SendReply(caller, "You don't have permission to do this.");
+				}
 			}
-
-			//play sound but it doesn't work
-			//StillRidingAroundWithThatBlickyTheyAintGonCatchMe (cratePos);
+			else{
+				SendReply(caller, "You don't have permission to do this.");
+			}
 		}
-		*/
+
 
 		[ChatCommand ("qleave")]
 		private void LeaveQueue(BasePlayer caller)
@@ -143,7 +115,6 @@ namespace Oxide.Plugins
 		[ChatCommand("rig")]
 		private void CmdRig (BasePlayer initiator)
 		{
-			Server.Broadcast ("In queue " + Teams.Count);
 			if (initiator == null) return;
 
 			if (initiator.Team == null || initiator.currentTeam < 1)
@@ -178,6 +149,7 @@ namespace Oxide.Plugins
 				Team newTeam = new Team
 				{
 					teamMembers = new List<BasePlayer> (),
+					connectedMembers = new List<BasePlayer>(),
 					identifier = initiator,
 					gamemodeQueuedFor = "",
 					inGame = false
@@ -189,6 +161,7 @@ namespace Oxide.Plugins
 					{
 						SendReply (initiator, "Member connected: " + teammate.displayName.ToString ());
 						newTeam.teamMembers.Add (teammate);
+						newTeam.connectedMembers.Add (teammate);
 						teamcount++;
 					}
 					else if (teammate != null && !teammate.IsConnected)
@@ -254,11 +227,11 @@ namespace Oxide.Plugins
 						teamsToRemove.Clear ();
 					}
 				});
-				displayMessageTimer = timer.Every (15f, () =>
+				displayMessageTimer = timer.Every (20f, () =>
 				{
 					if (Teams.ContainsKey (newTeam))
 					{
-						SendReply (initiator, "You are in the Queue for " + newTeam.gamemodeQueuedFor);
+						SendReply (initiator, "You are in the Queue for " + newTeam.gamemodeQueuedFor); // + " at an elo of " + getElo(initiator));
 					}
 					else
 					{
@@ -282,6 +255,7 @@ namespace Oxide.Plugins
 				identifier =		teamA.Key.identifier,
 				inGame =			teamA.Key.inGame,
 				teamMembers =		teamA.Key.teamMembers,
+				connectedMembers =	teamA.Key.connectedMembers,
 				roundsWon =			0
 			};
 
@@ -293,6 +267,7 @@ namespace Oxide.Plugins
 				identifier =		teamB.Key.identifier,
 				inGame =			teamB.Key.inGame,
 				teamMembers =		teamB.Key.teamMembers,
+				connectedMembers =	teamB.Key.connectedMembers,
 				roundsWon =			0
 			};
 
@@ -373,6 +348,7 @@ namespace Oxide.Plugins
 				identifier = match.a.identifier,
 				inGame = match.a.inGame,
 				teamMembers = match.a.teamMembers,
+				connectedMembers = match.a.connectedMembers,
 				roundsWon = match.a.roundsWon
 			};
 
@@ -393,6 +369,7 @@ namespace Oxide.Plugins
 				identifier = match.b.identifier,
 				inGame = match.b.inGame,
 				teamMembers = match.b.teamMembers,
+				connectedMembers = match.b.connectedMembers,
 				roundsWon = match.b.roundsWon
 			};
 
@@ -471,9 +448,12 @@ namespace Oxide.Plugins
 			outsideSpawn.z = -238.781f;
 
 			int [] itemIDsWear = { -194953424, 1110385766, 1850456855, -1549739227, 1366282552 };
-
+			int i = 0;
 			foreach (BasePlayer teamMember in team.Key.teamMembers)
 			{
+				if (i % 4 == 0){
+					i = 0;
+				}
 				if (teamMember == null)
 					continue;
 				PlayerInventory Inventory = teamMember.inventory;
@@ -490,11 +470,23 @@ namespace Oxide.Plugins
 				Inventory.Strip ();
 				if (color)
 				{
-					Teleport (teamMember, rigSpawns[0]);
+					Teleport (teamMember, rigSpawns[i]);
 					timer.Repeat (.125f, 80, () =>
 					{
-						if (teamMember != null && (teamMember.transform.position.x >= rigSpawns[0].x + 2.0f || teamMember.transform.position.z >= rigSpawns[0].z + 2.0f) || (teamMember.transform.position.x <= rigSpawns [0].x - 2.0f || teamMember.transform.position.z <= rigSpawns [0].z - 2.0f) || (teamMember.transform.position.x >= rigSpawns [0].x + 2.0f || teamMember.transform.position.z <= rigSpawns [0].z - 2.0f) || (teamMember.transform.position.x <= rigSpawns [0].x - 2.0f || teamMember.transform.position.z >= rigSpawns [0].z + 2.0f))
-							teamMember.MovePosition (rigSpawns[0]);
+						bool move = (teamMember.transform.position.x >= rigSpawns[i].x + 2.0f || 
+									 teamMember.transform.position.z >= rigSpawns[i].z + 2.0f) || 
+
+									(teamMember.transform.position.x <= rigSpawns [i].x - 2.0f || 
+									 teamMember.transform.position.z <= rigSpawns [i].z - 2.0f) || 
+									
+									(teamMember.transform.position.x >= rigSpawns [i].x + 2.0f || 
+									 teamMember.transform.position.z <= rigSpawns [i].z - 2.0f) || 
+									
+									(teamMember.transform.position.x <= rigSpawns [i].x - 2.0f || 
+									 teamMember.transform.position.z >= rigSpawns [i].z + 2.0f);
+
+						if (teamMember != null && move)
+							teamMember.MovePosition (rigSpawns[i]);
 					});
 				}
 				else
@@ -509,6 +501,7 @@ namespace Oxide.Plugins
 
 				GiveKit (teamMember, color);
 				Metabolize (teamMember);
+				i++;
 			}
 			if (color == false){
 				OnEntitySpawned (team.Key, match);
@@ -535,29 +528,30 @@ namespace Oxide.Plugins
 				return lockedCrate;
 			}
 			return lockedCrate;
-			//StillRidingAroundWithThatBlickyTheyAintGonCatchMe (IDoWhateverIwantCountUpTheMoneyForFun);
-			//return ThisAintNoGuessJeans;
 		}
 		private void CheckGame(Match match)
 		{
 			Timer myTimer = null;
 			myTimer = timer.Every (1f, () =>
 			{
-			//Dictionary<BasePlayer, ulong> onlineConnectionsTeamA = new Dictionary<BasePlayer, ulong> ();
-			//Dictionary<BasePlayer, ulong> onlineConnectionsTeamB = new Dictionary<BasePlayer, ulong> ();
-
-			//List<ulong> removePlayersTeamA = new List<ulong> ();
-			//List<ulong> removePlayersTeamB = new List<ulong> ();
-			//foreach (BasePlayer teammate in match.a.teamMembers)
-			//{
-			//	if (teammate != null && teammate.IsConnected)
-			//		onlineConnectionsTeamA.Add(teammate, teammate.userID);
-			//}
-			//foreach (BasePlayer teammate2 in match.b.teamMembers)
-			//{
-			//	if (teammate2 != null && teammate2.IsConnected)
-			//		onlineConnectionsTeamB.Add (teammate2, teammate2.userID);
-			//}
+				foreach (BasePlayer teammate in match.a.teamMembers)
+				{
+					if (teammate != null && teammate.IsConnected && !match.a.connectedMembers.Contains(teammate)){
+						match.a.connectedMembers.Add(teammate);
+					}	
+					else if (teammate != null && !teammate.IsConnected){
+						Kick(teammate);
+					}
+				}
+				foreach (BasePlayer teammate2 in match.b.teamMembers)
+				{
+					if (teammate2 != null && teammate2.IsConnected && !match.b.connectedMembers.Contains(teammate2)){
+						match.b.connectedMembers.Add (teammate2);
+					}
+					else if (teammate2 != null && !teammate2.IsConnected){
+						Kick(teammate2);
+					}	
+				}
 
 			//match.a.identifier.Team.
 				if (match.increaseRoundFlag && match.rounds == match.onRound)
@@ -568,20 +562,38 @@ namespace Oxide.Plugins
 				}
 				else if ((match.increaseRoundFlag || match.timeLeft == 40f) && match.rounds < match.onRound)
 				{
-					Team teamB = new Team
-					{
-						color = match.b.color,
-						matchID = match.b.matchID,
-						gamemodeQueuedFor = match.b.gamemodeQueuedFor,
-						identifier = match.b.identifier,
-						inGame = match.b.inGame,
-						teamMembers = match.b.teamMembers,
-						roundsWon = match.b.roundsWon + 1
-					};
-
-					SendMessage (teamB, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
-					SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round  by successully expiring the crate time.");
-					match.b = teamB;
+					if (match.b.color){
+						Team teamB = new Team
+						{
+							color = match.b.color,
+							matchID = match.b.matchID,
+							gamemodeQueuedFor = match.b.gamemodeQueuedFor,
+							identifier = match.b.identifier,
+							inGame = match.b.inGame,
+							teamMembers = match.b.teamMembers,
+							connectedMembers = match.b.connectedMembers,
+							roundsWon = match.b.roundsWon + 1
+						};
+						SendMessage (teamB, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
+						SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round  by successully expiring the crate time.");
+						match.b = teamB;
+					}
+					else{
+						Team teamA = new Team
+						{
+							color = match.a.color,
+							matchID = match.a.matchID,
+							gamemodeQueuedFor = match.a.gamemodeQueuedFor,
+							identifier = match.a.identifier,
+							inGame = match.a.inGame,
+							teamMembers = match.a.teamMembers,
+							connectedMembers = match.a.connectedMembers,
+							roundsWon = match.a.roundsWon + 1
+						};
+						SendMessage (teamA, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
+						SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round  by successully expiring the crate time.");
+						match.b = teamA;
+					}
 					match.roundOver = true;
 					match.onRound++;
 					Reset (match);
@@ -621,6 +633,7 @@ namespace Oxide.Plugins
 									identifier = match.b.identifier,
 									inGame = match.b.inGame,
 									teamMembers = match.b.teamMembers,
+									connectedMembers = match.b.connectedMembers,
 									roundsWon = match.b.roundsWon
 								};
 								if (!match.started && match.b.color)
@@ -657,7 +670,8 @@ namespace Oxide.Plugins
 									gamemodeQueuedFor = match.a.gamemodeQueuedFor,
 									identifier = match.a.identifier,
 									inGame = match.a.inGame,
-									teamMembers = match.a.teamMembers
+									teamMembers = match.a.teamMembers,
+									connectedMembers = match.a.connectedMembers,
 								};
 								if (!match.started && !teamA.color)
 								{
@@ -849,7 +863,7 @@ namespace Oxide.Plugins
 			Effect.server.Run ("assets/prefabs/locks/keypad/effects/lock.code.unlock.prefab", position);
 		}
 
-		private void StillRidingAroundWithThatBlickyTheyAintGonCatchMe (Vector3 position)
+		private void PlayLockedCrate (Vector3 position)
 		{
 			Effect.server.Run ("assets/prefabs/io/electric/other/alarmsound.prefab", position);
 		}
@@ -1118,18 +1132,34 @@ namespace Oxide.Plugins
 					if (match.a.teamMembers.Count < 1 || match.a.teamMembers == null || (match.rounds == match.onRound && match.ended))
 					{
 						End (match);
-						//GiveElo(match.b, match.a);
-						//Penalize(player, 4);
+					}
+					else if (match.a.teamMembers.Count > 1){
+						match.PenalizePlayers.Add(player);
+						match.a.connectedMembers.Remove(player);
+						match.a.canForfeit = true;
+						(match.a, "Your team is available to /forfeit, " + player.displayName.ToString() + " has disconnected from the match and has been penalized for each member of your team.");
 					}
 				}
 				else
 				{
-					if (match.b.teamMembers.Count < 1 || (match.rounds == match.onRound))
+					if (match.b.teamMembers.Count < 1 || match.b.teamMembers == null || (match.rounds == match.onRound))
 					{
 						End (match);
 					}
+					else if (match.b.teamMembers.Count > 1){
+						match.PenalizePlayers.Add(player);
+						match.b.connectedMembers.Remove(player);
+						match.b.canForfeit = true;
+						SendMessage(match.b, "Your team is available to /forfeit, " + player.displayName.ToString() + " has disconnected from the match and has been penalized for each member of your team.");
+					}
 				}
 			}
+			SwapLeadership(player);
+			Kick(player);
+		}
+
+		private void SwapLeadership(BasePlayer player){
+			// swap leadership if player is teamleader
 			if (player.Team != null && player == player.Team.GetLeader ()){
 				int rand = Random.Range (0, player.Team.members.Count);
 				ulong leaderID = player.Team.members [rand];
@@ -1137,9 +1167,15 @@ namespace Oxide.Plugins
 				player.Team.SetTeamLeader (leader.userID);
 				leader.Team.RemovePlayer (player.userID);
 			}
-			else if (player.Team != null && player.Team.members.Count > 1){
+		}
+
+		private void Kick(BasePlayer player){
+			if (player.Team != null && player.Team.members.Count > 1 && player != player.Team.GetLeader()){
 				BasePlayer leader = player.Team.GetLeader ();
 				leader.Team.RemovePlayer (player.userID);
+			}
+			else if (player == player.Team.GetLeader() && player.Team.members.count > 1){
+				SwapLeadership(player);
 			}
 		}
 
@@ -1169,6 +1205,7 @@ namespace Oxide.Plugins
 				}
 				victim.inventory.Strip ();
 				match.spectators.Add (victim);
+				//if (match.deathsTeamA.Count == match )
 				SendSpectate (victim);
 			}
 			else
@@ -1223,7 +1260,7 @@ namespace Oxide.Plugins
 				{
 					foreach (BasePlayer rat in match.PenalizePlayers)
 					{
-						Penalize (rat, true);
+						Penalize (rat, true, match.a.teamMembers.Count);		
 					}
 				}
 
@@ -1253,15 +1290,15 @@ namespace Oxide.Plugins
 
 		private void SendSpectate (BasePlayer player){
 			Vector3 deathLobby;
-			/*
 			deathLobby.x = -119.57f;
 			deathLobby.y = 15.11f;
 			deathLobby.z = 103.78f;
-			*/
 
+			/*
 			deathLobby.x = -417.66f;
 			deathLobby.y = 20.08f;
 			deathLobby.z = -226.21f;
+			*/
 			Teleport (player, deathLobby);
 		}
 		private bool IsInMatch(BasePlayer player){
@@ -1275,9 +1312,16 @@ namespace Oxide.Plugins
 			return false;
 		}
 
-		private void Penalize (BasePlayer player, bool leaver)
+		private void Penalize (BasePlayer player, bool leaver, int multiplier)
 		{
 			return;
+			DisconnectedPlayersAlert.Add(player, eloLost);
+			if (multiplier != 0){
+
+			}
+			else{
+
+			}
 		}
 
 		private Match GetMatch(BasePlayer player){
@@ -1363,6 +1407,27 @@ namespace Oxide.Plugins
 			}
 		}
 
+		private void OnPlayerConnected (BasePlayer player)
+		{
+			if (!player.IsValid())
+			{
+				return;
+			}
+			SendHome (player);
+
+			if (player.Team == null)
+			{
+				RelationshipManager.PlayerTeam PlayerTeam = RelationshipManager.ServerInstance.CreateTeam ();
+				PlayerTeam.teamLeader = player.userID;
+				PlayerTeam.AddPlayer (player);
+			}
+			
+			foreach (KeyValuePair<BasePlayer, float> disconnect in DisconnectedPlayersAlert){
+				if (player == disconnect.Key)
+					SendReply(disconnect.Key.displayName.ToString(), "Nice disconnect during the last match you played; you were penalized an extra " + disconnect.Value + " elo for leaving.");
+			}
+		}
+
 		private void AwardPoints (Match match)
 		{
 			return;
@@ -1434,6 +1499,7 @@ namespace Oxide.Plugins
 
 		private void SubscribeHooks(bool flag){
 			if (flag){
+				Subscribe (nameof (OnPlayerConnected));
 				Subscribe (nameof (OnPlayerDisconnected));
 				Subscribe (nameof (OnEntityDeath));
 				Subscribe (nameof (OnTeamKick));
@@ -1441,6 +1507,7 @@ namespace Oxide.Plugins
 				Subscribe (nameof (OnCrateHackEnd));
 			}
 			else{
+				Unsubscribe (nameof (OnPlayerConnected));
 				Unsubscribe (nameof (OnPlayerDisconnected));
 				Unsubscribe (nameof (OnEntityDeath));
 				Unsubscribe (nameof (OnTeamKick));
