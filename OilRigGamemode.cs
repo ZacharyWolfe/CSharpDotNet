@@ -216,12 +216,12 @@ namespace Oxide.Plugins
 							{
 								TeamsToRemove.Add (team.Key);
 								TeamsToRemove.Add (check.Key);
+								Entry = check;
 								if (newTimer != null)
 								{
 									newTimer.Destroy ();
 									newTimer = null;
 								}
-								Entry = check;
 								break;
 							}
 						}
