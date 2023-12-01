@@ -122,6 +122,11 @@ namespace Oxide.Plugins
 				initiator.ChatMessage ("Not a large enough group for this event. Please ensure that you are on a team.");
 				return;
 			}
+
+			if (Matches.Count > 0){
+				SendReply (initiator, "Sorry, there is already an ongoing game, please try again when the other ends.");
+			}
+
 			foreach (KeyValuePair<Team, int> check in Teams)
 			{
 				if (check.Key.Identifier == initiator)
@@ -191,6 +196,7 @@ namespace Oxide.Plugins
 						SendReply (initiator, "Team size invalid for this gamemode (Small Oil Rig). Err: 1 < Team size < 5.");
 						return;
 				}
+				//remove teamcount and replace with NewTeam.teammembers.count
 				Teams.Add (NewTeam, teamcount);
 				SendMessage (NewTeam, "Now queuing for " + NewTeam.GamemodeQueuedFor);
 
@@ -219,12 +225,14 @@ namespace Oxide.Plugins
 								break;
 							}
 						}
-						StartGame (team, Entry);
-						foreach (Team remove in TeamsToRemove)
-						{
-							Teams.Remove (remove);
-						}
-						TeamsToRemove.Clear ();
+						if (team.Key.TeamMembers.Count == Entry.Key.TeamMembers.Count && team.Key.TeamMembers != team.Key.TeamMembers){
+							StartGame (team, Entry);
+							foreach (Team remove in TeamsToRemove)
+							{
+								Teams.Remove (remove);
+							}
+							TeamsToRemove.Clear ();
+						}	
 					}
 				});
 				displayMessageTimer = timer.Every (20f, () =>
@@ -539,7 +547,7 @@ namespace Oxide.Plugins
 			{
 					if (match.ID == 0)
 					{
-						Server.Broadcast ("Something broke in this bitch fr, match ID is 0 ");
+						Server.Broadcast ("Something broke, match ID is 0 ");
 					}
 				/*
 				foreach (BasePlayer Teammate in match.a.TeamMembers)
@@ -1231,11 +1239,11 @@ namespace Oxide.Plugins
 
 			if (match.a.RoundsWon == 3)
 			{
-				Server.Broadcast (match.b.Identifier.displayName.ToString () + " got their shit rocked, 3-0.");
+				Server.Broadcast (match.b.Identifier.displayName.ToString () + " got rocked, 3-0.");
 			}
 			else if (match.b.RoundsWon == 3)
 			{
-				Server.Broadcast (match.a.Identifier.displayName.ToString () + " got their shit rocked, 3-0.");
+				Server.Broadcast (match.a.Identifier.displayName.ToString () + " got rocked, 3-0.");
 			}
 			
 			foreach (BasePlayer player in match.TeamsCombined)
