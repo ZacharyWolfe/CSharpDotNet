@@ -33,6 +33,7 @@ namespace Oxide.Plugins
 			public int OnRound;
 			public int Rounds;
 			public bool Started;
+			public bool Started2;
 			public bool Ended;
 			public List<BasePlayer> TeamsCombined;
 			public List<BasePlayer> DeathsTeamA;
@@ -293,29 +294,28 @@ namespace Oxide.Plugins
 				Minicopters = new List<PlayerHelicopter> (),
 			};
 
-			if (!newMatch.Started && newMatch.b.Color)
+			if (!newMatch.Started)
 			{
-				SendMessage (newMatch.b, "You are on the <color=#316bf5>BLUE</color> team.");
-				SendMessage (newMatch.b, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
-				newMatch.Started = true;
-			}
-			else if (!newMatch.Started && !newMatch.b.Color)
-			{
-				SendMessage (newMatch.b, "You are on the <color=#ed2323>RED</color> team.");
-				SendMessage (newMatch.b, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</Color> all enemies before the 5 minute timer runs out.");
-				newMatch.Started = true;
-			}
-
-			if (!newMatch.Started && !newMatch.a.Color)
-			{
-				SendMessage (newMatch.a, "You are on the <color=#ed2323>RED</color> team.");
-				SendMessage (newMatch.a, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
-				newMatch.Started = true;
-			}
-			else if (!newMatch.Started && newMatch.a.Color)
-			{
-				SendMessage (newMatch.a, "You are on the <color=#316bf5>BLUE</color> team.");
-				SendMessage (newMatch.a, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
+				if (newMatch.a.Color)
+				{
+					SendMessage (newMatch.b, "You are on the <color=#316bf5>BLUE</color> team.");
+					SendMessage (newMatch.b, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
+				}
+				else
+				{
+					SendMessage (newMatch.b, "You are on the <color=#ed2323>RED</color> team.");
+					SendMessage (newMatch.b, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
+				}
+				if (!newMatch.b.Color)
+				{
+					SendMessage (newMatch.a, "You are on the <color=#ed2323>RED</color> team.");
+					SendMessage (newMatch.a, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
+				}
+				else
+				{
+					SendMessage (newMatch.a, "You are on the <color=#316bf5>BLUE</color> team.");
+					SendMessage (newMatch.a, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
+				}
 				newMatch.Started = true;
 			}
 
@@ -517,7 +517,7 @@ namespace Oxide.Plugins
 			cratePos.y = 27.18f;
 			cratePos.z = -342.04f;
 
-			const float REQUIREDHACKSECONDS = 10f;
+			const float REQUIREDHACKSECONDS = 300f;
 			HackableLockedCrate LockedCrate;
 			LockedCrate = (HackableLockedCrate) GameManager.server.CreateEntity (crateAssetPrefab, cratePos, match.a.Identifier.ServerRotation);
 			
@@ -567,6 +567,7 @@ namespace Oxide.Plugins
 					match.RoundOver = true;
 					SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round by expiring the crate time.");
 					SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round by expiring the crate time.");
+					match.b.RoundsWon += 1;
 					End (match);
 					match.IncreaseRoundFlag = false;
 					if (myTimer != null)
@@ -619,6 +620,14 @@ namespace Oxide.Plugins
 					//match.TimeLeft++;
 					if (match.Rounds == match.OnRound && (match.DeathsTeamA.Count >= match.a.TeamMembers.Count || match.DeathsTeamB.Count >= match.b.TeamMembers.Count))
 					{
+						if (match.DeathsTeamA.Count >= match.a.TeamMembers.Count)
+						{
+							match.b.RoundsWon += 1;
+						}
+						else if (match.DeathsTeamB.Count >= match.b.TeamMembers.Count)
+						{
+							match.a.RoundsWon += 1;
+						}
 						End (match);
 						if (myTimer != null)
 						{
@@ -699,7 +708,7 @@ namespace Oxide.Plugins
 				}
 			});
 			Timer checkCrateTimer = null;
-			checkCrateTimer = timer.Repeat (10f, 3, () =>
+			checkCrateTimer = timer.Repeat (300f, 3, () =>
 			{
 				if (!match.RoundOver && match.LockedCrate != null)
 				{
@@ -829,7 +838,9 @@ namespace Oxide.Plugins
 			foreach (BasePlayer player in team.TeamMembers)
 			{
 				if (player != null)
+				{
 					SendReply (player, message);
+				}
 			}
 		}
 
@@ -924,7 +935,6 @@ namespace Oxide.Plugins
 				player.UpdateNetworkGroup ();
 				player.SendEntityUpdate ();
 			}
-
 			/*
 			if (player == null || destination == Vector3.zero)
 			{
@@ -942,8 +952,8 @@ namespace Oxide.Plugins
 			{
 				player.EndSleeping ();
 			}
-			
-			//player.Respawn ();
+			player.metabolism.bleeding.Set (0);
+
 			Metabolize (player);
 
 			player.Teleport (destination);
@@ -986,7 +996,11 @@ namespace Oxide.Plugins
 			foreach (BasePlayer player in team.TeamMembers)
 			{
 				if (player.IsConnected && player != null)
-				teamList.Add (player);
+					teamList.Add (player);
+				if (player.IsSleeping ())
+					player.EndSleeping ();
+				//if (player.IsDead ())
+					//player.respawn
 			}
 			for (int i = 0; i < teamList.Count; i++)
 			{
@@ -1110,6 +1124,7 @@ namespace Oxide.Plugins
 		}
 		
 		private void OnPlayerDisconnected(BasePlayer player, string reason){
+			return;
 			if (IsInMatch (player))
 			{
 				Match match = GetMatch (player);
@@ -1204,24 +1219,23 @@ namespace Oxide.Plugins
 			if (match.a.RoundsWon > match.b.RoundsWon)
 			{
 				match.Winner = match.a.Identifier.displayName.ToString ();
+				SendMessage (match.a, match.Winner + " wins. " + match.a.RoundsWon + "-" + match.b.RoundsWon + ".");
+				SendMessage (match.b, match.Winner + " wins. " + match.a.RoundsWon + "-" + match.b.RoundsWon + ".");
 			}
 			else
 			{
 				match.Winner = match.b.Identifier.displayName.ToString ();
+				SendMessage (match.a, match.Winner + " wins. " + match.b.RoundsWon + "-" + match.a.RoundsWon + ".");
+				SendMessage (match.b, match.Winner + " wins. " + match.b.RoundsWon + "-" + match.a.RoundsWon + ".");
 			}
 
-			if (match.a.RoundsWon == 2)
+			if (match.a.RoundsWon == 3)
 			{
 				Server.Broadcast (match.b.Identifier.displayName.ToString () + " got their shit rocked, 3-0.");
 			}
-			else if (match.b.RoundsWon == 2)
+			else if (match.b.RoundsWon == 3)
 			{
 				Server.Broadcast (match.a.Identifier.displayName.ToString () + " got their shit rocked, 3-0.");
-			}
-			else
-			{
-				SendMessage (match.a, match.Winner + " wins. " + match.a.RoundsWon + "-" + match.b.RoundsWon + ".");
-				SendMessage (match.b, match.Winner + " wins. " + match.b.RoundsWon + "-" + match.a.RoundsWon + ".");
 			}
 			
 			foreach (BasePlayer player in match.TeamsCombined)
@@ -1367,6 +1381,8 @@ namespace Oxide.Plugins
 
 		object OnTeamKick (RelationshipManager.PlayerTeam playerTeam, BasePlayer player, ulong target)
 		{
+			return false;
+			/*
 			if (IsInMatch (player))
 			{
 				return false;
@@ -1375,6 +1391,7 @@ namespace Oxide.Plugins
 			{
 				return null;
 			}
+			*/
 		}
 
 		object OnTeamLeave (RelationshipManager.PlayerTeam playerTeam, BasePlayer player)
