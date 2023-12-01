@@ -277,28 +277,6 @@ namespace Oxide.Plugins
 			teamANew.inGame = true;
 			teamBNew.inGame = true;
 
-			if (teamBNew.color)
-			{
-				SendMessage (teamBNew, "You are on the <color=#316bf5>BLUE</color> team.");
-				SendMessage (teamBNew, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
-			}
-			else
-			{
-				SendMessage (teamBNew, "You are on the <color=#ed2323>RED</color> team.");
-				SendMessage (teamBNew, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
-			}
-			if (teamANew.color)
-			{
-				SendMessage (teamANew, "You are on the <color=#316bf5>BLUE</color> team.");
-				SendMessage (teamANew, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
-			}
-			else
-			{
-				SendMessage (teamANew, "You are on the <color=#ed2323>RED</color> team.");
-				SendMessage (teamANew, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
-			}
-			
-
 			Match newMatch = new Match
 			{
 				a = teamANew,
@@ -315,11 +293,36 @@ namespace Oxide.Plugins
 				PenalizePlayers = new List<BasePlayer> (),
 				minicopters = new List<PlayerHelicopter> (),
 			};
+
+			if (!newMatch.started && newMatch.b.color)
+			{
+				SendMessage (newMatch.b, "You are on the <color=#316bf5>BLUE</color> team.");
+				SendMessage (newMatch.b, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
+				newMatch.started = true;
+			}
+			else if (!newMatch.started && !newMatch.b.color)
+			{
+				SendMessage (newMatch.b, "You are on the <color=#ed2323>RED</color> team.");
+				SendMessage (newMatch.b, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
+				newMatch.started = true;
+			}
+
+			if (!newMatch.started && !newMatch.a.color)
+			{
+				SendMessage (newMatch.a, "You are on the <color=#ed2323>RED</color> team.");
+				SendMessage (newMatch.a, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
+				newMatch.started = true;
+			}
+			else if (!newMatch.started && newMatch.a.color)
+			{
+				SendMessage (newMatch.a, "You are on the <color=#316bf5>BLUE</color> team.");
+				SendMessage (newMatch.a, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
+				newMatch.started = true;
+			}
+
 			var objec = newMatch;
 			objec.crateKek = StartTimedCrate (newMatch);
 			newMatch = objec;
-
-			Server.Broadcast ("startgame starttimedcrate null " + (newMatch.crateKek == null).ToString());
 
 			newMatch.teamsCombined = CombineTeams (newMatch.a, newMatch.b);
 
@@ -333,6 +336,7 @@ namespace Oxide.Plugins
 			CheckGame (newMatch);
 		}
 
+		/*
 		private void RoundIncrease (Match match)
 		{
 			Server.Broadcast ("In round increase");
@@ -419,7 +423,7 @@ namespace Oxide.Plugins
 			Server.Broadcast ("Checking match in roundincrease with flag of " + match2.increaseRoundFlag);
 			CheckGame (match2);
 		}
-
+		*/
 		private void SendToGame (KeyValuePair<Team, int> team, bool color, Match match)
 		{
 			match.roundOver = false;
@@ -514,7 +518,7 @@ namespace Oxide.Plugins
 			cratePos.y = 27.18f;
 			cratePos.z = -342.04f;
 
-			const float REQUIREDHACKSECONDS = 40f;
+			const float REQUIREDHACKSECONDS = 10f;
 			HackableLockedCrate lockedCrate;
 			lockedCrate = (HackableLockedCrate) GameManager.server.CreateEntity (crateAssetPrefab, cratePos, match.a.identifier.ServerRotation);
 			
@@ -534,6 +538,11 @@ namespace Oxide.Plugins
 			Timer myTimer = null;
 			myTimer = timer.Every (1f, () =>
 			{
+					if (match.ID == 0)
+					{
+						Server.Broadcast ("Something broke in this bitch fr, match ID is 0 ");
+					}
+				/*
 				foreach (BasePlayer teammate in match.a.teamMembers)
 				{
 					if (teammate != null && teammate.IsConnected && !match.a.connectedMembers.Contains(teammate)){
@@ -552,17 +561,24 @@ namespace Oxide.Plugins
 						Kick(teammate2);
 					}	
 				}
-
-			//match.a.identifier.Team.
+				*/
+				//match.a.identifier.Team.
 				if (match.increaseRoundFlag && match.rounds == match.onRound)
 				{
 					match.roundOver = true;
+					SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round by expiring the crate time.");
+					SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round by expiring the crate time.");
 					End (match);
 					match.increaseRoundFlag = false;
+					if (myTimer != null)
+					{
+						myTimer.Destroy ();
+						myTimer = null;
+					}
 				}
-				else if ((match.increaseRoundFlag || match.timeLeft == 40f) && match.rounds < match.onRound)
+				else if (match.increaseRoundFlag && match.onRound < match.rounds)
 				{
-					if (match.b.color){
+					if (match.b.color) {
 						Team teamB = new Team
 						{
 							color = match.b.color,
@@ -574,11 +590,11 @@ namespace Oxide.Plugins
 							connectedMembers = match.b.connectedMembers,
 							roundsWon = match.b.roundsWon + 1
 						};
-						SendMessage (teamB, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
-						SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round  by successully expiring the crate time.");
+						SendMessage (teamB, "<color=#316bf5>BLUE</color> won the round by expiring the crate time.");
+						SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round by expiring the crate time.");
 						match.b = teamB;
 					}
-					else{
+					else {
 						Team teamA = new Team
 						{
 							color = match.a.color,
@@ -590,164 +606,135 @@ namespace Oxide.Plugins
 							connectedMembers = match.a.connectedMembers,
 							roundsWon = match.a.roundsWon + 1
 						};
-						SendMessage (teamA, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
-						SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round  by successully expiring the crate time.");
+						SendMessage (teamA, "<color=#316bf5>BLUE</color> won the round by expiring the crate time.");
+						SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round by expiring the crate time.");
 						match.b = teamA;
 					}
-					match.roundOver = true;
 					match.onRound++;
-					Reset (match);
 					match.increaseRoundFlag = false;
 					match.ended = false;
+					Reset (ref match);
 				}
 				else
 				{
-						//match.timeLeft++;
-						if (match.rounds == match.onRound && (match.deathsTeamA.Count >= match.a.teamMembers.Count || match.deathsTeamB.Count >= match.b.teamMembers.Count))
+					//match.timeLeft++;
+					if (match.rounds == match.onRound && (match.deathsTeamA.Count >= match.a.teamMembers.Count || match.deathsTeamB.Count >= match.b.teamMembers.Count))
+					{
+						End (match);
+						if (myTimer != null)
 						{
-							if (match.a.roundsWon > match.b.roundsWon)
+							myTimer.Destroy ();
+							myTimer = null;
+						}
+					}
+					else if (match.deathsTeamB.Count >= match.b.teamMembers.Count || match.deathsTeamA.Count >= match.a.teamMembers.Count)
+					{
+						if (match.deathsTeamA.Count >= match.a.teamMembers.Count)
+						{
+							Team teamB = new Team
 							{
-								match.winner = match.a.identifier.displayName.ToString ();
+								color = match.b.color,
+								matchID = match.b.matchID,
+								gamemodeQueuedFor = match.b.gamemodeQueuedFor,
+								identifier = match.b.identifier,
+								inGame = match.b.inGame,
+								teamMembers = match.b.teamMembers,
+								connectedMembers = match.b.connectedMembers,
+								roundsWon = match.b.roundsWon + 1
+							};
+
+							if (match.b.color)
+							{
+								SendMessage (teamB, "<color=#316bf5>BLUE</color> won the round.");
+								SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round.");
 							}
 							else
 							{
-								match.winner = match.b.identifier.displayName.ToString ();
+								SendMessage (teamB, "<color=#ed2323>RED</color> won the round.");
+								SendMessage (match.a, "<color=#ed2323>RED</color> won the round.");
 							}
-
-							End (match);
-							if (myTimer != null)
-							{
-								myTimer.Destroy ();
-								myTimer = null;
-							}
+							match.roundOver = true;
+							match.b = teamB;
 						}
-						else if (match.deathsTeamB.Count >= match.b.teamMembers.Count || match.deathsTeamA.Count >= match.a.teamMembers.Count)
+						else
 						{
-							if (match.deathsTeamA.Count >= match.a.teamMembers.Count)
+							Team teamA = new Team
 							{
-								Team teamB = new Team
-								{
-									color = match.b.color,
-									matchID = match.b.matchID,
-									gamemodeQueuedFor = match.b.gamemodeQueuedFor,
-									identifier = match.b.identifier,
-									inGame = match.b.inGame,
-									teamMembers = match.b.teamMembers,
-									connectedMembers = match.b.connectedMembers,
-									roundsWon = match.b.roundsWon
-								};
-								if (!match.started && match.b.color)
-								{
-									SendMessage (teamB, "You are on the <color=#316bf5>BLUE</color> team.");
-									SendMessage (teamB, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
-								}
-								else if (!match.started && !match.b.color)
-								{
-									SendMessage (teamB, "You are on the <color=#ed2323>RED</color> team.");
-									SendMessage (teamB, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
-								}
-
-								if (match.b.color)
-								{
-									SendMessage (teamB, "<color=#316bf5>BLUE</color> won the round.");
-									SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round.");
-								}
-								else
-								{
-									SendMessage (teamB, "<color=#ed2323>RED</color> won the round.");
-									SendMessage (match.a, "<color=#ed2323>RED</color> won the round.");
-								}
-								teamB.roundsWon++;
-								match.roundOver = true;
-								match.b = teamB;
+								color = match.a.color,
+								matchID = match.a.matchID,
+								gamemodeQueuedFor = match.a.gamemodeQueuedFor,
+								identifier = match.a.identifier,
+								inGame = match.a.inGame,
+								teamMembers = match.a.teamMembers,
+								connectedMembers = match.a.connectedMembers,
+								roundsWon = match.a.roundsWon + 1
+							};
+							if (match.a.color)
+							{
+								SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round.");
+								SendMessage (teamA, "<color=#316bf5>BLUE</color> won the round.");
 							}
 							else
 							{
-								Team teamA = new Team
-								{
-									color = match.a.color,
-									matchID = match.a.matchID,
-									gamemodeQueuedFor = match.a.gamemodeQueuedFor,
-									identifier = match.a.identifier,
-									inGame = match.a.inGame,
-									teamMembers = match.a.teamMembers,
-									connectedMembers = match.a.connectedMembers,
-								};
-								if (!match.started && !teamA.color)
-								{
-									SendMessage (teamA, "You are on the <color=#ed2323>RED</color> team.");
-									SendMessage (teamA, "Get to the Oil Rig and successfully <color=#ed2323>ELIMINATE</color> all enemies before the 5 minute timer runs out.");
-								}
-								else if (!match.started && teamA.color)
-								{
-									SendMessage (teamA, "You are on the <color=#316bf5>BLUE</color> team.");
-									SendMessage (teamA, "You must wait 10 seconds before <color=#ed2323>DEFENDING</color> the OilRig from your opponent.");
-								}
-
-								if (match.a.color)
-								{
-									SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round.");
-									SendMessage (teamA, "<color=#316bf5>BLUE</color> won the round.");
-								}
-								else
-								{
-									SendMessage (match.b, "<color=#ed2323>RED</color> won the round.");
-									SendMessage (teamA, "<color=#ed2323>RED</color> won the round.");
-								}
-								teamA.roundsWon++;
-								match.roundOver = true;
-								match.a = teamA;
+								SendMessage (match.b, "<color=#ed2323>RED</color> won the round.");
+								SendMessage (teamA, "<color=#ed2323>RED</color> won the round.");
 							}
-							match.onRound++;
-							Reset (match);
-							match.ended = false;
+							match.roundOver = true;
+							match.a = teamA;
 						}
+						match.onRound++;
 						match.ended = false;
-						//if (onlineConnectionsTeamA.Count != match.a.identifier.Team.members.Count)
-						//{
-						//passengers = teamList.Except (drivers).ToList ();
-						//	removePlayersTeamA = match.a.identifier.Team.members.Except (onlineConnectionsTeamA.Values).ToList ();
-						//}
-						//if (onlineConnectionsTeamB.Count != match.b.identifier.Team.members.Count)
-						//{
-						//passengers = teamList.Except (drivers).ToList ();
-						//	removePlayersTeamB = match.b.identifier.Team.members.Except (onlineConnectionsTeamB.Values).ToList ();
-						//}
+						Reset (ref match);
+					}
+					match.ended = false;
+					//if (onlineConnectionsTeamA.Count != match.a.identifier.Team.members.Count)
+					//{
+					//passengers = teamList.Except (drivers).ToList ();
+					//	removePlayersTeamA = match.a.identifier.Team.members.Except (onlineConnectionsTeamA.Values).ToList ();
+					//}
+					//if (onlineConnectionsTeamB.Count != match.b.identifier.Team.members.Count)
+					//{
+					//passengers = teamList.Except (drivers).ToList ();
+					//	removePlayersTeamB = match.b.identifier.Team.members.Except (onlineConnectionsTeamB.Values).ToList ();
+					//}
+				}
+			});
+			Timer checkCrateTimer = null;
+			checkCrateTimer = timer.Repeat (10f, 3, () =>
+			{
+				if (!match.roundOver && match.crateKek != null)
+				{
+					//SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
+					//SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
+					match.increaseRoundFlag = true;
+					match.ended = true;
+					//RoundIncrease (match);
+				}
+				else
+				{
+					checkCrateTimer.Destroy ();
+					checkCrateTimer = null;
 				}
 			});
 		}
 
-		private void Reset (Match match)
+		private void Reset (ref Match match)
 		{
-			Server.Broadcast ("In reset");
 			if (match.ID == 0)
 			{
-				Server.Broadcast ("reset matchid == 0");
 				return;
 			}
-
-			var obj = match;
-			//match.crateKek = StartTimedCrate (match);
-			obj.increaseRoundFlag = false;
-			
-			Server.Broadcast ("crate == null reset1 " + (match.crateKek == null).ToString ());
-
-			//AwardPoints (match);
-			List<PlayerHelicopter> minicopterstoremove = new List<PlayerHelicopter> ();
-			match.increaseRoundFlag = false;
-			match.deathsTeamB.Clear ();
-			match.deathsTeamA.Clear ();
-			match.spectators.Clear ();
 
 			if (match.crateKek != null)
 			{
 				match.crateKek.Kill ();
+				match.crateKek = null;
 			}
 
-			obj.crateKek = StartTimedCrate (match);
-			match = obj;
+			match.crateKek = StartTimedCrate (match);
 
-			Server.Broadcast ("crate == null reset2 " + (match.crateKek == null).ToString ());
+			//AwardPoints (match);
+			List<PlayerHelicopter> minicopterstoremove = new List<PlayerHelicopter> ();
 
 			if (match.minicopters != null)
 			{
@@ -772,8 +759,11 @@ namespace Oxide.Plugins
 
 		private void Respawn (Match match)
 		{
-			KeyValuePair<Team, int> teamA = new KeyValuePair<Team, int>(match.a, match.a.teamMembers.Count);
+			KeyValuePair<Team, int> teamA = new KeyValuePair<Team, int> (match.a, match.a.teamMembers.Count);
 			KeyValuePair<Team, int> teamB = new KeyValuePair<Team, int> (match.b, match.b.teamMembers.Count);
+			match.deathsTeamA.Clear ();
+			match.deathsTeamB.Clear ();
+			match.spectators.Clear ();
 			SendToGame (teamA, match.a.color, match);
 			SendToGame (teamB, match.b.color, match);
 		}
@@ -1054,7 +1044,6 @@ namespace Oxide.Plugins
 			}
 			if (match.crateKek == null)
 			{
-				Server.Broadcast ("TimedCrateStarted");
 				Match newMatch = new Match {
 					a = match.a,
 					b = match.b,
@@ -1075,7 +1064,6 @@ namespace Oxide.Plugins
 					increaseRoundFlag = match.increaseRoundFlag
 				};
 				match = newMatch;
-
 			}
 		}
 		private void ModifyFuel(BaseEntity entity)
@@ -1213,12 +1201,21 @@ namespace Oxide.Plugins
 				SendHome(victim);
 			}
 		}
-		private void End(Match match){
-			if (match.a.roundsWon == 3)
+		private void End (Match match){
+			if (match.a.roundsWon > match.b.roundsWon)
+			{
+				match.winner = match.a.identifier.displayName.ToString ();
+			}
+			else
+			{
+				match.winner = match.b.identifier.displayName.ToString ();
+			}
+
+			if (match.a.roundsWon == 2)
 			{
 				Server.Broadcast (match.b.identifier.displayName.ToString () + " got their shit rocked, 3-0.");
 			}
-			else if (match.b.roundsWon == 3)
+			else if (match.b.roundsWon == 2)
 			{
 				Server.Broadcast (match.a.identifier.displayName.ToString () + " got their shit rocked, 3-0.");
 			}
@@ -1226,55 +1223,58 @@ namespace Oxide.Plugins
 			{
 				SendMessage (match.a, match.winner + " wins. " + match.a.roundsWon + "-" + match.b.roundsWon + ".");
 				SendMessage (match.b, match.winner + " wins. " + match.b.roundsWon + "-" + match.a.roundsWon + ".");
-				Matches.Remove (match);
-				foreach (BasePlayer player in match.teamsCombined)
-				{
-					SendHome (player);
-				}
+			}
+			
+			foreach (BasePlayer player in match.teamsCombined)
+			{
+				SendHome (player);
+			}
 
-				foreach (PlayerHelicopter mini in match.minicopters)
+			foreach (PlayerHelicopter mini in match.minicopters)
+			{
+				if (mini != null || !mini.IsDestroyed)
 				{
-					if (mini != null || !mini.IsDestroyed)
-					{
-						mini.Kill ();
-					}
-				}
-
-				match.minicopters.Clear ();
-				match.spectators.Clear ();
-				match.deathsTeamA.Clear ();
-				match.deathsTeamB.Clear ();
-				match.ended = true;
-				match.started = false;
-				match.ID = 0;
-				match.onRound = 0;
-				match.rounds = 0;
-				match.winner = null;
-				if (match.crateKek != null)
-				{
-					match.crateKek.Kill ();
-					match.crateKek = null;
-				}
-
-				if (match.PenalizePlayers.Count > 0)
-				{
-					foreach (BasePlayer rat in match.PenalizePlayers)
-					{
-						Penalize (rat, true, match.a.teamMembers.Count);		
-					}
-				}
-
-				match.a.teamMembers.Clear ();
-				match.b.teamMembers.Clear ();
-				if (Teams.ContainsKey (match.a))
-				{
-					Teams.Remove (match.a);
-				}
-				if (Teams.ContainsKey (match.b))
-				{
-					Teams.Remove (match.b);
+					mini.Kill ();
 				}
 			}
+
+			match.minicopters.Clear ();
+			match.spectators.Clear ();
+			match.deathsTeamA.Clear ();
+			match.deathsTeamB.Clear ();
+			match.a.teamMembers.Clear ();
+			match.b.teamMembers.Clear ();
+			match.teamsCombined.Clear ();
+			match.ended = true;
+			match.started = false;
+			match.ID = 0;
+			match.onRound = 0;
+			match.rounds = 0;
+			match.winner = null;
+			if (match.crateKek != null)
+			{
+				match.crateKek.Kill ();
+				match.crateKek = null;
+			}
+
+			if (match.PenalizePlayers.Count > 0)
+			{
+				foreach (BasePlayer rat in match.PenalizePlayers)
+				{
+					Penalize (rat, true, match.a.teamMembers.Count);		
+				}
+			}
+			match.PenalizePlayers.Clear ();
+
+			if (Teams.ContainsKey (match.a))
+			{
+				Teams.Remove (match.a);
+			}
+			if (Teams.ContainsKey (match.b))
+			{
+				Teams.Remove (match.b);
+			}
+			Matches.Remove (match);
 		}
 		private void SendHome(BasePlayer player){
 			Vector3 spawn;
@@ -1338,19 +1338,19 @@ namespace Oxide.Plugins
 			return matchNotFound;
 		}
 
-		private Match GetMatch (HackableLockedCrate crate)
+		/*
+		private int GetMatch (HackableLockedCrate crate)
 		{
-			Match matchNotFound = new Match ();
-			foreach (Match match in Matches)
+			for (int i = 0; i < Matches.Count; i++)
 			{
-				if (match.crateKek == crate)
+				if (Matches[i].crateKek == crate)
 				{
-					return match;
+					return i;
 				}
 			}
-			matchNotFound.ID = 0;
-			return matchNotFound;
+			return 1000;
 		}
+		*/
 
 		private void MatchSet(Match receiver, Match setter){
 			receiver.a = setter.a;
@@ -1368,8 +1368,6 @@ namespace Oxide.Plugins
 
 		object OnTeamKick (RelationshipManager.PlayerTeam playerTeam, BasePlayer player, ulong target)
 		{
-			return false;
-			/*
 			if (IsInMatch (player))
 			{
 				return false;
@@ -1378,7 +1376,6 @@ namespace Oxide.Plugins
 			{
 				return null;
 			}
-			*/
 		}
 
 		object OnTeamLeave (RelationshipManager.PlayerTeam playerTeam, BasePlayer player)
@@ -1393,21 +1390,38 @@ namespace Oxide.Plugins
 			}
 		}
 
+		/*
 		void OnCrateHackEnd (HackableLockedCrate self)
 		{
-			Match match = GetMatch (self);
-			Server.Broadcast ("oncratehackend crate == null " + (match.crateKek == null).ToString ());
-
-			if (!match.roundOver && self != null)
+			return;
+			if (self != null)
 			{
-				SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
-				SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
-				self.Kill ();
-				match.increaseRoundFlag = true;
-				//RoundIncrease (match);
-			}
-		}
+				Match match = new Match ();
+				match = Matches[GetMatch(self)];
 
+				if (match.ID == 0)
+				{
+					Server.Broadcast ("invalid match ");
+				}
+
+				if (!match.roundOver)
+				{
+					//SendMessage (match.b, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
+					//SendMessage (match.a, "<color=#316bf5>BLUE</color> won the round by successully expiring the crate time.");
+					self.Kill ();
+					
+					match.increaseRoundFlag = true;
+					match.ended = true;
+					//RoundIncrease (match);
+				}
+			}
+			else
+			{
+				Server.Broadcast ("null lmao fuck");
+			}
+			
+		}
+		*/
 		private void OnPlayerConnected (BasePlayer player)
 		{
 			if (!player.IsValid())
