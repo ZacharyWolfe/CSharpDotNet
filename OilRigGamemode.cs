@@ -425,8 +425,6 @@ namespace Oxide.Plugins
 
 		private void SendToGame (KeyValuePair<Team, int> team, bool color, Match match)
 		{
-			match.roundOver = false;
-
 			Vector3 [] rigSpawns = new Vector3[4];
 			Vector3 outsideSpawn;
 
@@ -545,7 +543,8 @@ namespace Oxide.Plugins
 						match.a.connectedMembers.Add(teammate);
 					}	
 					else if (teammate != null && !teammate.IsConnected){
-						Kick(teammate);
+						SwapLeadership(teammate);
+						//Kick(teammate);
 					}
 				}
 				foreach (BasePlayer teammate2 in match.b.teamMembers)
@@ -554,7 +553,8 @@ namespace Oxide.Plugins
 						match.b.connectedMembers.Add (teammate2);
 					}
 					else if (teammate2 != null && !teammate2.IsConnected){
-						Kick(teammate2);
+						SwapLeadership(teammate2);
+						//Kick(teammate2);
 					}	
 				}
 
@@ -775,6 +775,7 @@ namespace Oxide.Plugins
 		{
 			KeyValuePair<Team, int> teamA = new KeyValuePair<Team, int>(match.a, match.a.teamMembers.Count);
 			KeyValuePair<Team, int> teamB = new KeyValuePair<Team, int> (match.b, match.b.teamMembers.Count);
+			match.roundOver = false;
 			SendToGame (teamA, match.a.color, match);
 			SendToGame (teamB, match.b.color, match);
 		}
@@ -817,7 +818,7 @@ namespace Oxide.Plugins
 				weapon.SendNetworkUpdateImmediate(false); // update
 				weapon.primaryMagazine.contents = weapon.primaryMagazine.capacity; // load new ammo
 			}
-			GiveItems (Inventory, 1, Inventory.containerWear);                                                                  // ARMOR
+			GiveItems (Inventory, 1, Inventory.containerWear);                                               // ARMOR
 			if (teamColor)
 			{
 				Inventory.GiveItem (ItemManager.CreateByItemID (1751045826, 1, 14178), Inventory.containerWear);				// HOODIE
@@ -1155,7 +1156,7 @@ namespace Oxide.Plugins
 				}
 			}
 			SwapLeadership(player);
-			Kick(player);
+			//Kick(player);
 		}
 
 		private void SwapLeadership(BasePlayer player){
@@ -1167,18 +1168,19 @@ namespace Oxide.Plugins
 				player.Team.SetTeamLeader (leader.userID);
 				leader.Team.RemovePlayer (player.userID);
 			}
-		}
-
-		private void Kick(BasePlayer player){
-			if (player.Team != null && player.Team.members.Count > 1 && player != player.Team.GetLeader()){
+			else if (player.Team != null && player.Team.members.Count > 1 && player != player.Team.GetLeader()){
 				BasePlayer leader = player.Team.GetLeader ();
 				leader.Team.RemovePlayer (player.userID);
 			}
+		}
+		/*
+		private void Kick(BasePlayer player){
+			
 			else if (player == player.Team.GetLeader() && player.Team.members.count > 1){
 				SwapLeadership(player);
 			}
 		}
-
+		*/
 		private void OnEntityDeath(BaseEntity entity, HitInfo hitInfo){
 			if (entity == null)
 				return;
