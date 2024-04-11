@@ -1,0 +1,6 @@
+## Oil Rig Gamemode
+A project centered around the game [Rust](https://rust.facepunch.com)
+
+This project took a team of users which could join forces through the UI in game. With this data from the users, teamleader, steamID64 id's, display names, etc, I was able to unite them on the Oil Rig monument in game.
+I took this team of users, and as a second team joined the queue I would teleport them off to the structure they would then fight on. I gave the users
+ the option to fly in or boat in, but ultimately never completely finished the functionality of the boating option. On the Oil Rig there exists a hackable crate, which I modified to have a maximum of 5 minutes from the default 15. This crate, upon expiration (using a hook) would award the defending team a point. If the team attacking successfully eliminated all defenders, they would gain a point. After a point was awarded, the teams would reset to their starting positions (after a brief intermission in a separate confined space). Once a team got to 3 points (best of 5) the mode would teleport them back to the lobby, adjust their ELO (their overall score in a database determined by wins and losses), increase games played, and adjust games won and loss accordingly.
