@@ -11,7 +11,6 @@ using Newtonsoft.Json;
 namespace Oxide.Plugins
 {
 	[Info ("OilRigGamemode", "Blood", "0.0.1")]
-	[Description ("Give them the damn gamemode")]
 	public class OilRigGamemode : RustPlugin
 	{
 		private const string minicopterAssetPrefab = "assets/content/vehicles/minicopter/minicopter.entity.prefab";
@@ -1002,9 +1001,9 @@ namespace Oxide.Plugins
 							MinicoptersToRemove.Add (mini);
 					}
 				}
-				foreach (PlayerHelicopter minicopterfuckingdie in MinicoptersToRemove)
+				foreach (PlayerHelicopter minicopter in MinicoptersToRemove)
 				{
-					match.minicopters.Remove (minicopterfuckingdie);
+					match.minicopters.Remove (minicopter);
 				}
 			}
 			if (!match.ended)
@@ -1544,11 +1543,11 @@ namespace Oxide.Plugins
 
 			if (match.a.roundsWon == 3 && match.b.roundsWon == 0)
 			{
-				Server.Broadcast (match.b.identifier.displayName.ToString () + " got their shit rocked, 3-0.");
+				Server.Broadcast (match.b.identifier.displayName.ToString () + " got rocked, 3-0.");
 			}
 			else if (match.b.roundsWon == 3 && match.a.roundsWon == 0)
 			{
-				Server.Broadcast (match.a.identifier.displayName.ToString () + " got their shit rocked, 3-0.");
+				Server.Broadcast (match.a.identifier.displayName.ToString () + " got rocked, 3-0.");
 			}
 			foreach (BasePlayer player in match.teamsCombined)
 			{
